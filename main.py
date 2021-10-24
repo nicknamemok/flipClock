@@ -3,7 +3,7 @@ import time
 import datetime
 from typing import List
 # import RPi.GPIO as GPIO
-import dotenv as env
+# import dotenv as env
 import requests
 import json
 import sys
