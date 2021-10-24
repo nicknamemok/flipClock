@@ -10,6 +10,21 @@ import sys
 from constants import *
 import getopt
 
+class Functionalities:
+
+    def getCurrentTime(now: datetime =datetime.datetime.now()) -> List[int]:
+        now = datetime.datetime.now()
+        return([int(now.hour/10),now.hour%10,int(now.minute/10),now.minute%10])
+
+    def getCurrentWeather() -> List[int]:
+        env.load_dotenv()
+        token = os.environ.get("api-token")
+        city = os.environ.get("city")
+        url = "http://api.openweathermap.org/data/2.5/weather?q=" + city + "&appid=" + token
+        response = requests.get(url).json()
+        temperature = round(response['main']['temp']-273.15)
+        return([int(temperature/10), temperature%10, 0, 0])
+
 
 class Servo:
 
@@ -40,9 +55,6 @@ class Servo:
             # [GPIO.output(pin, 0) for pin in stepOutput[self.m_stepOutputIndex]]
 
     def stepPosition(self) -> None:
-        # diff = position-self.m_currentPosition
-        # totalMoves = diff if diff >= 0 else self.m_numberOfFlaps+diff
-        # for i in range(totalMoves):
         self.stepServo(self.m_stepOrder[self.m_stepOrderIndex])
         self.m_stepOrderIndex = self.m_currentPosition = self.m_stepOrderIndex+1 if self.m_stepOrderIndex<self.m_numberOfFlaps-1 else 0
 
@@ -53,7 +65,7 @@ class Servo:
         print("Test Done\n")
 
 
-class Controller:
+class Controller(Functionalities):
 
     def __init__(self, stepDelay: float =0.01, flipDelay: float =0) -> None:
         # GPIO.setmode(GPIO.BCM)
@@ -74,25 +86,12 @@ class Controller:
                     doneStatus[i] = True
         print([i.m_currentPosition for i in self.m_servos])
 
-
-    def getCurrentTime(now: datetime =datetime.datetime.now()) -> List[int]:
-        now = datetime.datetime.now()
-        return([int(now.hour/10),now.hour%10,int(now.minute/10),now.minute%10])
-
-    def getCurrentWeather() -> List[int]:
-        env.load_dotenv()
-        token = os.environ.get("api-token")
-        city = os.environ.get("city")
-        url = "http://api.openweathermap.org/data/2.5/weather?q=" + city + "&appid=" + token
-        response = requests.get(url).json()
-        temperature = round(response['main']['temp']-273.15)
-        return([int(temperature/10), temperature%10, 0, 0])
-
     def test(self) -> None:
         for servo,i in zip(self.m_servos,[1,2,3,4]):
             print("Testing servo: ",i)
             servo.test()
             time.sleep(2)
+            
 
 def main():
     controller = Controller(delayStep, delayFlip)
@@ -113,6 +112,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-# TEST
