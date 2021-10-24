@@ -10,6 +10,8 @@ import sys
 from constants import *
 import getopt
 
+# test
+
 class Functionalities:
 
     def getCurrentTime(now: datetime =datetime.datetime.now()) -> List[int]:
