@@ -2,15 +2,18 @@ import os
 import time
 import datetime
 from typing import List
-# import RPi.GPIO as GPIO
+import RPi.GPIO as GPIO
 # import dotenv as env
 import requests
 import json
 import sys
-from constants import *
+# from constants import *
 import getopt
 
-# test
+delayFlip = 0.5
+delayStep = 0.0025
+servoPins = [[5,6,13,19],[12,16,20,21],[1,2,3,4],[1,2,3,4]]
+
 
 class Functionalities:
 
@@ -37,24 +40,34 @@ class Servo:
         # Related to stepPosition function
         self.m_currentPosition = 0
         self.m_numberOfFlaps = 12
-        self.m_stepOrder = [5]*11 + [8]
+        # self.m_stepOrder = [85]*11 + [89]
+        # self.m_stepOrder = [170]*11 + [178]
+        self.m_stepOrder = [512]*12
 
         # Related to stepServo function
+        self.flipDelay = flipDelay
         self.stepDelay = stepDelay
         self.m_stepOrderIndex = 0
         self.m_stepOutputIndex = 0
         self.m_stepOutput = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]
         self.m_subStepOutput = [[1,0,0,0],[1,1,0,0],[0,1,0,0],[0,1,1,0],[0,0,1,0],[0,0,1,1],[0,0,0,1],[1,0,0,1]]
-
-        # [GPIO.setup(i, GPIO.OUT) for i in pins]
-        # [GPIO.output(pin, 0) for pin in stepOutput[self.m_stepOutputIndex]]
+        {GPIO.setup(i, GPIO.OUT) for i in self.m_pins}
+        # {GPIO.output(pin, 0) for pin,output in zip(self.m_pins,self.m_stepOutput[self.m_stepOutputIndex])}
 
     def stepServo(self, steps: int) -> None:
+
         for i in range(steps):
             self.m_stepOutputIndex = 0 if self.m_stepOutputIndex == len(self.m_stepOutput)-1 else self.m_stepOutputIndex + 1
-            # [GPIO.output(pin, 1) for pin in stepOutput[self.m_stepOutputIndex]]
+            # [GPIO.output(pin, 1) for pin in self.m_stepOutput[self.m_stepOutputIndex]]
+            [GPIO.output(pin, 1) for pin,output in zip(self.m_pins,self.m_stepOutput[self.m_stepOutputIndex])]
+            
+            for pin in range(len(self.m_pins)):
+                GPIO.output(self.m_pins[pin],self.m_stepOutput[self.m_stepOutputIndex][pin])
+            
             time.sleep(self.stepDelay)
             # [GPIO.output(pin, 0) for pin in stepOutput[self.m_stepOutputIndex]]
+            [GPIO.output(pin, 0) for pin,output in zip(self.m_pins,self.m_stepOutput[self.m_stepOutputIndex])]
+
 
     def stepPosition(self) -> None:
         self.stepServo(self.m_stepOrder[self.m_stepOrderIndex])
@@ -63,6 +76,7 @@ class Servo:
     def test(self) -> None:
         for i in [1,2,3,4,5,6,7,8,9,10,11,0]:
             print("Current position: ", self.m_currentPosition,". Going to position: ",i)
+            time.sleep(self.flipDelay)
             self.stepPosition()
         print("Test Done\n")
 
@@ -70,8 +84,8 @@ class Servo:
 class Controller(Functionalities):
 
     def __init__(self, stepDelay: float =0.01, flipDelay: float =0) -> None:
-        # GPIO.setmode(GPIO.BCM)
-        # [GPIO.setup(pin,GPIO.OUT) for pin in servoPins]
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)
         self.m_servos = [Servo(i, stepDelay, flipDelay) for i in servoPins]
         self.m_postion = self.getCurrentTime()
         # self.toCurrentTime()
@@ -96,6 +110,7 @@ class Controller(Functionalities):
             
 
 def main():
+
     controller = Controller(delayStep, delayFlip)
 
     args = sys.argv[1:]
@@ -111,6 +126,9 @@ def main():
     else:
         print("Testing all servos")   
         controller.test()
+
+    GPIO.cleanup()
+
 
 if __name__ == "__main__":
     main()
