@@ -123,6 +123,7 @@ def main():
         if opt in ("-m","--manual"):
             print("Stepping servo: ",arg)
             controller.m_servos[int(arg)-1].stepPosition()
+            return
     else:
         print("Testing all servos")   
         controller.test()
