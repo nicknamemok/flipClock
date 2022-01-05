@@ -114,7 +114,7 @@ def main():
     controller = Controller(delayStep, delayFlip)
 
     args = sys.argv[1:]
-    optlist, args = getopt.getopt(args, 's:')
+    optlist, args = getopt.getopt(args, 's:m:')
     for opt, arg in optlist:
         if opt in ("-s","--single"):
             print("Testing single servo: ",arg)
