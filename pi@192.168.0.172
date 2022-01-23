@@ -114,34 +114,17 @@ def main():
     controller = Controller(delayStep, delayFlip)
 
     args = sys.argv[1:]
-    optlist, args = getopt.getopt(args, 's:m:',['m1=','m2=','m3=','m4='])
+    optlist, args = getopt.getopt(args, 's:m:')
     for opt, arg in optlist:
-        # Single servo cycle test
-        if opt in ("-s"):
+        if opt in ("-s","--single"):
             print("Testing single servo: ",arg)
             controller.m_servos[int(arg)-1].test()
             return
-        # Manually step single servo one flap
-        if opt in ("-m"):
+        if opt in ("-m","--manual"):
             print("Stepping servo: ",arg)
             controller.m_servos[int(arg)-1].stepPosition()
             return
-
-        # Manually step servos by x steps
-        if opt in ('--m1'):
-            print("Stepping servo 1:",arg,"steps")
-            {controller.m servos[0].stepPosition() for i in range(arg)}
-        if opt in ('--m2'):
-            print("Stepping servo 2:",arg,"steps")
-            {controller.m servos[1].stepPosition() for i in range(arg)}
-        if opt in ('--m3'):
-            print("Stepping servo 3:",arg,"steps")
-            {controller.m servos[2].stepPosition() for i in range(arg)}
-        if opt in ('--m4'):
-            print("Stepping servo 4:",arg,"steps")
-            {controller.m servos[3].stepPosition() for i in range(arg)}
     else:
-        # All servo cycle test
         print("Testing all servos")   
         controller.test()
 
