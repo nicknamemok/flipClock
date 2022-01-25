@@ -100,14 +100,6 @@ class Controller(Functionalities):
         current_time = self.getCurrentTime()
         print(current_time)
 
-        # Currently flips only first servo to the single digit of minutes
-        # while(current_time[3] is not self.m_servos[3].m_currentPosition):
-        #     self.m_servos[3].stepPosition()
-        #     time.sleep(self.flipDelay)
-
-        # NOT RUNNING CONCURRENTLY AS IT STEPS EACH SERVO ONE AT A TIME, NEED TO HAVE A FUNCTION THAT
-        # SINGLE STEPS EACH SERVO LOOP.
-
         # Only servos 3 and 4, corresponding to minutes
         while not all(doneStatus):
             for i in range(len(doneStatus)):
