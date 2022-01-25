@@ -11,7 +11,10 @@ import getopt
 # Session constants
 DELAY_FLIP = 0.5
 DELAY_STEP = 0.0025
-SERVO_PINS = [[5,6,13,19],[12,16,20,21],[1,2,3,4],[1,2,3,4]]
+SERVO_PINS = [[1,2,3,4],        # Hour, digit 1
+              [1,2,3,4],        # Hour, digit 2
+              [12,16,20,21],    # Minute, digit 1
+              [5,6,13,19]]      # Minute, digit 2
 
 
 class Functionalities:
@@ -92,14 +95,28 @@ class Controller(Functionalities):
 
     # Commands controller to current time
     def toCurrentTime(self) -> None:
-        doneStatus = [False, False, False, False]
+        # doneStatus = [False, False, False, False]
+        doneStatus = [False, False]
         current_time = self.getCurrentTime()
         print(current_time)
 
         # Currently flips only first servo to the single digit of minutes
-        while(current_time[3] is not self.m_servos[0].m_currentPosition):
-            self.m_servos[0].stepPosition()
+        # while(current_time[3] is not self.m_servos[3].m_currentPosition):
+        #     self.m_servos[3].stepPosition()
+        #     time.sleep(self.flipDelay)
+
+        # NOT RUNNING CONCURRENTLY AS IT STEPS EACH SERVO ONE AT A TIME, NEED TO HAVE A FUNCTION THAT
+        # SINGLE STEPS EACH SERVO LOOP.
+
+        # Only servos 3 and 4, corresponding to minutes
+        while not all(doneStatus):
+            for i in range(len(doneStatus)):
+                if current_time[i+2] is not self.m_servos[i+2].m_currentPosition:
+                    self.m_servos[i+2].stepPosition()
+                else:
+                    doneStatus[i] = True
             time.sleep(self.flipDelay)
+            
 
         # while not all(doneStatus):
         #     for i in range(len(doneStatus)):
