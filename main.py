@@ -41,95 +41,102 @@ class Servo:
         # Initialize pins
         self.m_pins = pins
 
-        # Related to stepPosition function
-        self.m_currentPosition = 0
-        self.m_numberOfFlaps = 12
-        self.m_stepOrder = [512]*self.m_numberOfFlaps
-        self.m_stepOrderIndex = 0
-
-        # Related to stepServo function
-        self.flipDelay = flipDelay
-        self.stepDelay = stepDelay
+        # State variables of servo
         self.m_stepOutput = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]
         self.m_stepOutputIndex = 0
 
         # Initialize pins to output mode
         {GPIO.setup(i, GPIO.OUT) for i in self.m_pins}
 
-    # Steps servo by input steps
-    def stepServo(self, steps: int) -> None:
-
-        for i in range(steps):
-            self.m_stepOutputIndex = 0 if self.m_stepOutputIndex == len(self.m_stepOutput)-1 else self.m_stepOutputIndex + 1
-            for pin in range(len(self.m_pins)):
-                GPIO.output(self.m_pins[pin],self.m_stepOutput[self.m_stepOutputIndex][pin])
-            time.sleep(self.stepDelay)
-
-    # Step by 1 flap
-    def stepPosition(self) -> None:
-        # Call function to step servo appropriate number of steps
-        self.stepServo(self.m_stepOrder[self.m_stepOrderIndex])
-        # Increment step order index and current position cyclically
-        if self.m_stepOrderIndex<self.m_numberOfFlaps-1:
-            self.m_stepOrderIndex += 1
+    # Steps servo one step
+    def stepServo(self) -> None:
+        # Output array to pins
+        for pin in range(len(self.m_pins)):
+            GPIO.output(self.m_pins[pin],outputs[pin])
+        # Increment stepoutput index cyclically
+        if self.m_stepOutputIndex == len(self.m_stepOutput)-1:
+            self.m_stepOutputIndex = 0 
         else:
-            self.m_stepOrderIndex = 0
-        self.m_currentPosition = self.m_stepOrderIndex
-
-    # Unit test for servo
-    def test(self) -> None:
-        for i in [1,2,3,4,5,6,7,8,9,10,11,0]:
-            print("Current position: ", self.m_currentPosition,". Going to position: ",i)
-            time.sleep(self.flipDelay)
-            self.stepPosition()
-        print("Test Done\n")
+            self.m_stepOutputIndex += 1
 
 
 class Controller(Functionalities):
 
-    def __init__(self, stepDelay: float =0.01, flipDelay: float =0) -> None:
+    def __init__(self, stepDelay: float, flipDelay: float) -> None:
+
+        self.flipDelay = flipDelay
+        self.stepDelay = stepDelay
+
+        self.m_numberOfFlaps = 12
+        self.m_stepOrder = [512]*self.m_numberOfFlaps
+
+        self.currentPositions = [0,0,0,0]
+
         GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
         self.m_servos = [Servo(i, stepDelay, flipDelay) for i in SERVO_PINS]
         self.flipDelay = flipDelay
 
+    # Should generalize number of servos under controller command
+    # Should also make it constant time to calculate number of steps needed    
+    def calculateMovement(command: List[int]) -> List[int]:
+        movement = [0]*4
+        for i in range(4):
+            while self.currentPositions[i] is not command[i]:
+                # Sum up current steps to movement
+                movement[i] += self.m_stepOrder[self.currentPositions[i]]
+                # Increment position cyclically
+                # Note that each index is the number of steps to progress from that index flap to the next
+                # i.e. for stepOrder[0] that is the number of steps from 0 -> 1
+                if self.currentPositions[i] is self.m_numberOfFlaps-1:
+                    self.m_currentPositions[i] = 0
+                else:
+                    self.m_currentPositions[i] += 1
+        return movement
+
+    def moveTo(command: List[int]) -> None:
+        # Retrieve movement needed
+        movement = calculateMovement(command)
+        # While any value in the array is above 0, we will loop through to step
+        while any(movement):
+            for i in range(4):
+                # If there are still steps for given servo, will step that servo
+                # and then decrement number of steps needed
+                if movement[i] > 0:
+                    self.m_servos[i].stepServo()
+                    movement[i] -= 1
+                    time.sleep(self.stepDelay)
+
     # Commands controller to current time
     def toCurrentTime(self) -> None:
-        # doneStatus = [False, False, False, False]
-        doneStatus = [False, False]
+
         current_time = self.getCurrentTime()
         print(current_time)
 
-        # Only servos 3 and 4, corresponding to minutes
-        while not all(doneStatus):
-            for i in range(len(doneStatus)):
-                if current_time[i+2] is not self.m_servos[i+2].m_currentPosition:
-                    self.m_servos[i+2].stepPosition()
-                else:
-                    doneStatus[i] = True
+        stepCounter = []
+        while (any(flapDoneStatus)):
+
+    # Unit test to time 1111
+    def unitTest():
+        self.moveTo([1,1,1,1])
+        print(currentPositions)
+
+    # Unit test cycle all flaps
+    def cycleTest():
+        for i in range(self.m_numberOfFlaps):
+            self.moveTo([i]*4)
+            print(currentPositions)
             time.sleep(self.flipDelay)
-            
 
-        # while not all(doneStatus):
-        #     for i in range(len(doneStatus)):
-        #         if time[i] != self.m_servos[i].m_currentPosition:
-        #             self.m_servos[i].stepPosition()
-        #         else:
-        #             doneStatus[i] = True
-        # print([i.m_currentPosition for i in self.m_servos])
-
-    # Unit test for controller
-    def test(self) -> None:
-        for servo,i in zip(self.m_servos,[1,2,3,4]):
-            print("Testing servo: ",i)
-            servo.test()
-            time.sleep(2)
             
 
 def main():
 
     # Instantiate controller object
     controller = Controller(DELAY_STEP, DELAY_FLIP)
+
+    # Test
+    controller.
 
     # Options handling
     args = sys.argv[1:]
