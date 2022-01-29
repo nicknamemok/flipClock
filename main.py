@@ -9,6 +9,9 @@ import sys
 import getopt
 
 # Session constants
+NUMBER_OF_TEETH = 2048
+GEAR_RATIO = 3
+NUMBER_OF_FLAPS = 12
 DELAY_FLIP = 0.5
 DELAY_STEP = 0.0025
 SERVO_PINS = [[1,2,3,4],        # Hour, digit 1
@@ -17,34 +20,30 @@ SERVO_PINS = [[1,2,3,4],        # Hour, digit 1
               [5,6,13,19]]      # Minute, digit 2
 
 
-class Functionalities:
+def getCurrentTime(now: datetime =datetime.datetime.now()) -> List[int]:
+    now = datetime.datetime.now()
+    return([int(now.hour/10),now.hour%10,int(now.minute/10),now.minute%10])
 
-    def getCurrentTime(now: datetime =datetime.datetime.now()) -> List[int]:
-        now = datetime.datetime.now()
-        return([int(now.hour/10),now.hour%10,int(now.minute/10),now.minute%10])
-
-    # Currently weather not in order, API keys are not loaded in
-    # def getCurrentWeather() -> List[int]:
-    #     env.load_dotenv()
-    #     token = os.environ.get("api-token")
-    #     city = os.environ.get("city")
-    #     url = "http://api.openweathermap.org/data/2.5/weather?q=" + city + "&appid=" + token
-    #     response = requests.get(url).json()
-    #     temperature = round(response['main']['temp']-273.15)
-    #     return([int(temperature/10), temperature%10, 0, 0])
+# Currently weather not in order, API keys are not loaded in
+# def getCurrentWeather() -> List[int]:
+#     env.load_dotenv()
+#     token = os.environ.get("api-token")
+#     city = os.environ.get("city")
+#     url = "http://api.openweathermap.org/data/2.5/weather?q=" + city + "&appid=" + token
+#     response = requests.get(url).json()
+#     temperature = round(response['main']['temp']-273.15)
+#     return([int(temperature/10), temperature%10, 0, 0])
 
 
 class Servo:
 
-    def __init__(self, pins: List[int], stepDelay: float, flipDelay: float):
-
+    def __init__(self, pins: List[int]):
         # Initialize pins
         self.m_pins = pins
-
         # State variables of servo
         self.m_stepOutput = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]
         self.m_stepOutputIndex = 0
-
+        self.currentPosition = 0
         # Initialize pins to output mode
         {GPIO.setup(i, GPIO.OUT) for i in self.m_pins}
 
@@ -60,72 +59,61 @@ class Servo:
             self.m_stepOutputIndex += 1
 
 
-class Controller(Functionalities):
+class Controller:
 
-    def __init__(self, stepDelay: float, flipDelay: float) -> None:
-
+    def __init__(self, numberOfTeeth: int, gearRatio: int, numberOfFlaps: int, stepDelay: float, flipDelay: float) -> None:
+        # Initializing controller constants based on user input
+        totalSteps = gearRatio*numberOfTeeth
+        self.numberOfFlaps = numberOfFlaps
+        self.normalSteps = int(totalSteps/self.numberOfFlaps)
+        self.lastSteps = totalSteps-(numberOfFlaps-1)*self.normalSteps
         self.flipDelay = flipDelay
         self.stepDelay = stepDelay
-
-        self.m_numberOfFlaps = 12
-        self.m_stepOrder = [512]*self.m_numberOfFlaps
-
-        self.currentPositions = [0,0,0,0]
-
+        # GPIO setup
         GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
-        self.m_servos = [Servo(i, stepDelay, flipDelay) for i in SERVO_PINS]
-        self.flipDelay = flipDelay
+        self.servos = [Servo() for pins in SERVO_PINS]
 
-    # Should generalize number of servos under controller command
-    # Should also make it constant time to calculate number of steps needed    
-    def calculateMovement(command: List[int]) -> List[int]:
-        movement = [0]*4
-        for i in range(4):
-            while self.currentPositions[i] is not command[i]:
-                # Sum up current steps to movement
-                movement[i] += self.m_stepOrder[self.currentPositions[i]]
-                # Increment position cyclically
-                # Note that each index is the number of steps to progress from that index flap to the next
-                # i.e. for stepOrder[0] that is the number of steps from 0 -> 1
-                if self.currentPositions[i] is self.m_numberOfFlaps-1:
-                    self.m_currentPositions[i] = 0
-                else:
-                    self.m_currentPositions[i] += 1
-        return movement
-
+    # Move to input position
     def moveTo(command: List[int]) -> None:
-        # Retrieve movement needed
-        movement = calculateMovement(command)
-        # While any value in the array is above 0, we will loop through to step
+        # Calculate steps needed for move
+        movement = [0]*len(self.servos)
+        for i in range(len(self.servos)):
+            servoPosition = self.servos[i].currentPosition
+            # O(1) calculation of servo steps to reach commanded location
+            if self.servos[i].currentPosition < command[i]:
+                movement[i] = self.normalSteps*(command[i]-self.servos[i].currentPosition)
+            elif self.servos[i].currentPosition > command[i]:
+                movement[i] = (self.numberOfFlaps-1-self.servos[i].currentPosition+command[i])*self.normalSteps+self.lastSteps
+            else:
+                movement[i] = 0
+        # While any value in the array is above 0, we will loop through to step each servo if needed
         while any(movement):
-            for i in range(4):
-                # If there are still steps for given servo, will step that servo
-                # and then decrement number of steps needed
+            for i in range(len(self.servos)):
                 if movement[i] > 0:
-                    self.m_servos[i].stepServo()
+                    self.servos[i].stepServo()
                     movement[i] -= 1
                     time.sleep(self.stepDelay)
 
-    # Commands controller to current time
-    def toCurrentTime(self) -> None:
-
-        current_time = self.getCurrentTime()
-        print(current_time)
-
-        stepCounter = []
-        while (any(flapDoneStatus)):
+    # Move single servo 1 flap
+    def moveSingle(servo: int) -> None:
+        if self.servos[i].currentPosition < self.numberOfFlaps:
+            {self.servos[i].stepServo() for i in range(self.normalSteps)}
+            self.servos[i] += 1
+        else:
+            {self.servos[i].stepServo() for i in range(self.lastSteps)}
+            self.servos[i] = 0
 
     # Unit test to time 1111
     def unitTest():
         self.moveTo([1,1,1,1])
-        print(currentPositions)
+        {print(servo.currentPosition) for servo in self.servos}
 
     # Unit test cycle all flaps
     def cycleTest():
-        for i in range(self.m_numberOfFlaps):
+        for i in range(self.numberOfFlaps):
             self.moveTo([i]*4)
-            print(currentPositions)
+            {print(servo.currentPosition) for servo in self.servos}
             time.sleep(self.flipDelay)
 
             
@@ -133,56 +121,51 @@ class Controller(Functionalities):
 def main():
 
     # Instantiate controller object
-    controller = Controller(DELAY_STEP, DELAY_FLIP)
-
-    # Test
-    controller.
+    controller = Controller(NUMBER_OF_TEETH, GEAR_RATIO, NUMBER_OF_FLAPS, DELAY_STEP, DELAY_FLIP)
 
     # Options handling
     args = sys.argv[1:]
-    optlist, args = getopt.getopt(args, 's:m:a',['m1=','m2=','m3=','m4='])
+    optlist, args = getopt.getopt(args, 'm:sa',['m1=','m2=','m3=','m4='])
     for opt, arg in optlist:
-        # Single servo cycle test
+        # Single flip test
         if opt in ("-s"):
-            print("Testing single servo: ",arg)
-            controller.m_servos[int(arg)-1].test()
+            print("Single step test: ",arg)
+            controller.unitTest()
             return
-        # All servo cycle test
+        # Cycle flip test
         if opt in ("-a"):
-            print("Testing all servos")   
-            controller.test()
+            print("Cycle test")   
+            controller.cycleTest()
             return
-        # Manually step single servo one flap
+        # Move single servo
         if opt in ("-m"):
-            print("Stepping servo: ",arg)
-            controller.m_servos[int(arg)-1].stepPosition()
-            return
+            print("Stepping",arg,"servo.")
+            controller.moveSingle(int(arg))
         # Manually step servos by x steps
         if opt in ('--m1'):
             print("Stepping servo 1:",arg,"steps")
-            {controller.m_servos[0].stepPosition() for i in range(int(arg))}
+            {controller.moveSingle(1) for i in arg}
             return
         if opt in ('--m2'):
             print("Stepping servo 2:",arg,"steps")
-            {controller.m_servos[1].stepPosition() for i in range(int(arg))}
+            {controller.moveSingle(1) for i in arg}
             return
         if opt in ('--m3'):
             print("Stepping servo 3:",arg,"steps")
-            {controller.m_servos[2].stepPosition() for i in range(int(arg))}
+            {controller.moveSingle(1) for i in arg}
             return
         if opt in ('--m4'):
             print("Stepping servo 4:",arg,"steps")
-            {controller.m_servos[3].stepPosition() for i in range(int(arg))}
+            {controller.moveSingle(1) for i in arg}
             return
         
     else:
         # Infinite loop that updates time according to current time, updates at 1 Hz
         while(True):
-            controller.toCurrentTime()
+            controller.moveTo(getCurrentTime())
             time.sleep(1)
 
     GPIO.cleanup()
-
 
 if __name__ == "__main__":
     main()
